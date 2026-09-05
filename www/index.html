@@ -62,7 +62,32 @@
       <span class="sub-header-spacer"></span>
     </header>
 
-    <div id="setup-step-count" class="setup-step active">
+    <div id="setup-step-mode" class="setup-step active">
+      <p class="setup-hint">اختر طريقة اللعب</p>
+      <div class="mode-cards">
+        <button type="button" id="mode-open-btn" class="btn mode-card">
+          <span class="mode-card-icon">∞</span>
+          <span class="mode-card-title">مفتوحة</span>
+          <span class="mode-card-sub">العب بلا حدّ لعدد الجولات، حتى تُنهي اللعبة بنفسك</span>
+        </button>
+        <button type="button" id="mode-fixed-btn" class="btn mode-card">
+          <span class="mode-card-icon">🏆</span>
+          <span class="mode-card-title">بطولة بعدد جولات محدد</span>
+          <span class="mode-card-sub">حدّد عدد الجولات، وفي النهاية يُعلن الفائز بالبطولة</span>
+        </button>
+      </div>
+      <div id="rounds-stepper" class="rounds-stepper" hidden>
+        <span class="rounds-stepper-label">عدد الجولات</span>
+        <div class="rounds-stepper-controls">
+          <button type="button" id="rounds-minus-btn" class="btn stepper-btn" aria-label="إنقاص">−</button>
+          <span id="rounds-value" class="rounds-value">5</span>
+          <button type="button" id="rounds-plus-btn" class="btn stepper-btn" aria-label="زيادة">+</button>
+        </div>
+      </div>
+      <button id="mode-next-btn" class="btn primary-btn wide-btn" disabled>التالي</button>
+    </div>
+
+    <div id="setup-step-count" class="setup-step">
       <p class="setup-hint">اختر عدد اللاعبين (من 1 إلى 10)</p>
       <div id="count-grid" class="count-grid"></div>
       <button id="count-next-btn" class="btn primary-btn wide-btn" disabled>التالي</button>
@@ -87,28 +112,54 @@
       </button>
     </header>
 
-    <div class="turn-info">
-      <span class="turn-label">دور اللاعب</span>
-      <div class="turn-player-row">
-        <h2 id="current-player-name">—</h2>
-        <span class="turn-score-badge"><span id="current-player-score">0</span> نقطة</span>
+    <div id="turn-play-area">
+      <div class="turn-info">
+        <span class="turn-label">دور اللاعب</span>
+        <div class="turn-player-row">
+          <h2 id="current-player-name">—</h2>
+          <span class="turn-score-badge"><span id="current-player-score">0</span> نقطة</span>
+        </div>
+      </div>
+
+      <div class="target-panel">
+        <span class="target-label">الرقم المستهدف</span>
+        <div id="target-number" class="target-number">0.00</div>
+      </div>
+
+      <div class="timer-panel">
+        <div id="timer-display" class="timer-display">--.--</div>
+        <div id="result-banner" class="result-banner"></div>
+      </div>
+
+      <div class="game-actions">
+        <button id="start-stop-btn" class="btn timer-btn">ابدأ</button>
+        <button id="next-turn-btn" class="btn secondary-btn next-btn">التالي &#8592;</button>
       </div>
     </div>
 
-    <div class="target-panel">
-      <span class="target-label">الرقم المستهدف</span>
-      <div id="target-number" class="target-number">0.00</div>
+    <div id="round-result-panel" class="round-result-panel" hidden>
+      <div class="round-result-header">
+        <span class="round-result-label">نتيجة الجولة <span id="round-result-round-num">1</span></span>
+        <div class="round-result-target">الرقم المستهدف: <strong id="round-result-target">0.00</strong></div>
+      </div>
+      <ul id="round-result-list" class="round-result-list"></ul>
+      <div id="round-result-winner-banner" class="round-result-winner-banner"></div>
+      <button id="round-continue-btn" class="btn primary-btn wide-btn wide-btn--go">الجولة التالية</button>
     </div>
+  </section>
 
-    <div class="timer-panel">
-      <div id="timer-display" class="timer-display">--.--</div>
-      <div id="result-banner" class="result-banner"></div>
+  <!-- ---------- TOURNAMENT END ---------- -->
+  <section id="tournament-end-screen" class="screen">
+    <div class="trophy-hero">
+      <span class="trophy-icon">🏆</span>
+      <h2 class="trophy-title">الفائز بالبطولة</h2>
+      <p id="champion-name" class="champion-name">—</p>
     </div>
-
-    <div class="game-actions">
-      <button id="start-stop-btn" class="btn timer-btn">ابدأ</button>
-      <button id="next-turn-btn" class="btn secondary-btn next-btn">التالي &#8592;</button>
+    <div class="final-standings">
+      <span class="final-standings-label">الترتيب النهائي</span>
+      <ul id="final-standings-list" class="rankings-list"></ul>
     </div>
+    <button id="tournament-menu-btn" class="btn primary-btn wide-btn">العودة للقائمة الرئيسية</button>
   </section>
 
 </div>
@@ -124,9 +175,9 @@
     <div class="modal-body">
       <p>🎯 <strong>الهدف:</strong> في كل جولة يظهر رقم مستهدف، مثل <span class="hl">3.00</span>. عند الضغط على زر (ابدأ) يبدأ المؤقّت بالعدّ، لكنه يختفي عن الشاشة فورًا — لا يمكنك رؤيته وهو يعمل!</p>
       <p>⏱️ اعتمد على إحساسك بالوقت، واضغط زر (توقف) في اللحظة التي تشعر أنها تطابق الرقم المستهدف تمامًا. فور الضغط، يظهر الرقم الذي توقفت عنده مباشرة دون أي تأخير.</p>
-      <p>🏆 <strong>النقاط:</strong> تحصل على نقطة واحدة فقط إذا توقفت عند الرقم المطلوب بالضبط، حتى الخانتين العشريتين. الاقتراب الشديد مثل 2.99 من هدف 3.00 لا يمنحك أي نقطة.</p>
-      <p>👥 يمكن لأكثر من لاعب الحصول على نقطة في نفس الجولة إذا تطابق كل منهم مع الرقم المستهدف.</p>
-      <p>🔁 يلعب من لاعب واحد وحتى 10 لاعبين بالتناوب، وفي كل جولة جديدة يظهر رقم مختلف عشوائيًا.</p>
+      <p>🏆 <strong>النقاط:</strong> بعد أن يأخذ جميع اللاعبين دورهم في الجولة، يحصل <strong>الأقرب</strong> إلى الرقم المستهدف على نقطة. إذا تساوى لاعبان أو أكثر في أقرب مسافة (بما في ذلك المطابقة التامة)، يحصل الجميع على نقطة.</p>
+      <p>🕹️ <strong>طريقة اللعب:</strong> عند الضغط على "لعب" تختار بين لعبة مفتوحة بلا حدّ لعدد الجولات، أو بطولة بعدد جولات محدد تُعلن في نهايتها الفائز.</p>
+      <p>👥 يلعب من لاعب واحد وحتى 10 لاعبين بالتناوب، وفي كل جولة جديدة يظهر رقم مختلف عشوائيًا.</p>
       <p>📊 اضغط زر ترتيب اللاعبين في أي وقت أثناء اللعب لمعرفة نقاط وترتيب الجميع.</p>
     </div>
   </div>
