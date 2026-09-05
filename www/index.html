@@ -48,8 +48,65 @@
         </span>
         <span>صوت</span>
       </button>
+      <button id="btn-rules" class="btn menu-btn menu-btn--rules">
+        <span class="menu-btn-icon">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        </span>
+        <span>القواعد</span>
+      </button>
     </div>
     <p class="menu-footer">تحدّي الثانية &copy; جميع الحقوق محفوظة</p>
+  </section>
+
+  <!-- ---------- CUSTOM RULES ---------- -->
+  <section id="rules-screen" class="screen">
+    <header class="sub-header">
+      <button class="icon-btn" id="rules-back-btn" aria-label="رجوع">
+        <svg viewBox="0 0 24 24"><path d="M17.5 3.5 8 12l9.5 8.5" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h2>قواعد اللعبة</h2>
+      <span class="sub-header-spacer"></span>
+    </header>
+
+    <div class="rules-content">
+      <label class="rule-option-card" for="rule-default-radio">
+        <input type="radio" name="scoring-rule" id="rule-default-radio" class="rule-radio" checked />
+        <span class="rule-option-body">
+          <span class="rule-option-title">القواعد الافتراضية</span>
+          <span class="rule-option-sub">الأقرب إلى الرقم يفوز بنقطة واحدة دائمًا، حتى لو أصاب الرقم تمامًا. الباقون لا يحصلون على شيء.</span>
+        </span>
+      </label>
+
+      <div class="rules-divider"></div>
+
+      <div class="toggle-row">
+        <span class="toggle-row-label">تفعيل قاعدة النقطتين عند الإصابة التامة</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="double-points-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div id="double-points-suboptions" class="double-points-suboptions" hidden>
+        <label class="rule-option-card" for="rule-a-radio">
+          <input type="radio" name="scoring-rule" id="rule-a-radio" class="rule-radio" />
+          <span class="rule-option-body">
+            <span class="rule-option-title">الأقرب نقطة، والمصيب التام نقطتان</span>
+            <span class="rule-option-sub">من يصيب الرقم تمامًا يحصل على نقطتين. إن لم يصبه أحد، يفوز الأقرب بنقطة واحدة.</span>
+          </span>
+        </label>
+
+        <label class="rule-option-card" for="rule-b-radio">
+          <input type="radio" name="scoring-rule" id="rule-b-radio" class="rule-radio" />
+          <span class="rule-option-body">
+            <span class="rule-option-title">المصيب التام فقط يحصل على نقطتين</span>
+            <span class="rule-option-sub">من يصيب الرقم تمامًا يحصل على نقطتين. إن لم يصبه أحد، لا يحصل أي أحد على نقاط هذه الجولة.</span>
+          </span>
+        </label>
+      </div>
+
+      <p class="rules-note">ملاحظة: في كل الحالات، إذا تساوى لاعبان أو أكثر (سواء في أقرب مسافة أو في الإصابة التامة)، يحصل جميعهم على النقطة نفسها.</p>
+    </div>
   </section>
 
   <!-- ---------- PLAYER SETUP ---------- -->
@@ -179,6 +236,7 @@
       <p>🕹️ <strong>طريقة اللعب:</strong> عند الضغط على "لعب" تختار بين لعبة مفتوحة بلا حدّ لعدد الجولات، أو بطولة بعدد جولات محدد تُعلن في نهايتها الفائز.</p>
       <p>👥 يلعب من لاعب واحد وحتى 10 لاعبين بالتناوب، وفي كل جولة جديدة يظهر رقم مختلف عشوائيًا.</p>
       <p>📊 اضغط زر ترتيب اللاعبين في أي وقت أثناء اللعب لمعرفة نقاط وترتيب الجميع.</p>
+      <p>🎛️ من زر (القواعد) في القائمة الرئيسية يمكنك تخصيص طريقة احتساب النقاط، مثل منح نقطتين للإصابة التامة بدل نقطة واحدة.</p>
     </div>
   </div>
 </div>
