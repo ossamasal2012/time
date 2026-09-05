@@ -1,0 +1,17 @@
+{
+  "name": "tahaddi-al-thania",
+  "version": "1.0.0",
+  "description": "تحدّي الثانية — لعبة تحدي دقة التوقيت (Capacitor Android app)",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync android",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.1",
+    "@capacitor/core": "8.5.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.1"
+  }
+}
