@@ -367,7 +367,7 @@ svg { width: 24px; height: 24px; fill: currentColor; }
 
 #setup-screen { justify-content: flex-start; }
 
-.setup-step { display: none; flex-direction: column; flex: 1; }
+.setup-step { display: none; flex-direction: column; flex: 1; min-height: 0; }
 .setup-step.active { display: flex; }
 
 .setup-hint {
@@ -403,12 +403,102 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   border-color: transparent;
 }
 
+.mode-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 20px 18px;
+  background: var(--navy-800);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-md);
+}
+
+.mode-card.selected {
+  border-color: var(--gold-500);
+  background: linear-gradient(180deg, rgba(245,180,0,0.14), var(--navy-800));
+  box-shadow: var(--shadow-gold);
+}
+
+.mode-card-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.mode-card-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--ink-0);
+}
+
+.mode-card-sub {
+  font-size: 0.82rem;
+  color: var(--ink-300);
+  line-height: 1.5;
+}
+
+.rounds-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--navy-800);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.rounds-stepper[hidden] { display: none; }
+
+.rounds-stepper-label { color: var(--ink-100); font-weight: 700; font-size: 0.95rem; }
+
+.rounds-stepper-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stepper-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  background: rgba(245, 180, 0, 0.14);
+  color: var(--gold-400);
+  font-size: 1.3rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.rounds-value {
+  min-width: 28px;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--ink-0);
+  font-variant-numeric: tabular-nums;
+}
+
 .names-wrap {
   display: flex;
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   flex: 1;
+  min-height: 0;
   padding-bottom: 12px;
   margin-bottom: 14px;
 }
@@ -610,6 +700,151 @@ svg { width: 24px; height: 24px; fill: currentColor; }
 
 .next-btn.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
+/* ---------------- Round result panel (closest-to-target reveal) ---------------- */
+
+#turn-play-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Author CSS that sets `display` on an element always outranks the
+   browser's built-in `[hidden] { display: none }` rule (different cascade
+   origin, not just specificity) — so without this, the plain `display: flex`
+   rules above would defeat the hidden attribute entirely and the panel
+   would never actually hide. This restores it, using selectors specific
+   enough to still win. */
+#turn-play-area[hidden],
+.round-result-panel[hidden] {
+  display: none;
+}
+
+.round-result-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  animation: fadeSlideIn 0.3s ease;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.round-result-header { text-align: center; margin-bottom: 16px; }
+
+.round-result-label {
+  display: block;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--gold-400);
+  margin-bottom: 6px;
+}
+
+.round-result-target {
+  color: var(--ink-300);
+  font-size: 0.9rem;
+}
+
+.round-result-target strong { color: var(--ink-0); }
+
+.round-result-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
+}
+
+.round-result-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--navy-800);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.round-result-row.winner {
+  border-color: var(--gold-500);
+  background: linear-gradient(180deg, rgba(245,180,0,0.14), var(--navy-800));
+}
+
+.round-result-medal { font-size: 1.2rem; width: 26px; text-align: center; }
+.round-result-name { flex: 1; font-weight: 600; color: var(--ink-100); }
+.round-result-value { font-weight: 800; color: var(--ink-0); font-variant-numeric: tabular-nums; }
+.round-result-point { color: var(--gold-400); font-weight: 800; font-size: 0.85rem; white-space: nowrap; }
+
+.round-result-winner-banner {
+  text-align: center;
+  font-weight: 700;
+  color: var(--green-400);
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+}
+
+/* ---------------- Tournament end screen ---------------- */
+
+#tournament-end-screen { align-items: center; text-align: center; justify-content: flex-start; padding-top: max(48px, env(safe-area-inset-top)); }
+
+.trophy-hero { display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; }
+
+.trophy-icon {
+  font-size: 4rem;
+  line-height: 1;
+  filter: drop-shadow(0 8px 20px rgba(245, 180, 0, 0.4));
+  animation: floatLogo 2s ease-in-out infinite;
+}
+
+.trophy-title {
+  margin: 14px 0 4px;
+  font-size: 1.3rem;
+  color: var(--ink-300);
+  font-weight: 700;
+}
+
+.champion-name {
+  margin: 0;
+  font-size: 1.9rem;
+  font-weight: 800;
+  background: linear-gradient(180deg, var(--gold-300), var(--gold-500));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.final-standings {
+  width: 100%;
+  max-width: 420px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+}
+
+.final-standings-label {
+  display: block;
+  color: var(--ink-300);
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+}
+
+.final-standings .rankings-list {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
+}
+
 /* ---------------- Modals ---------------- */
 
 .modal {
@@ -663,6 +898,9 @@ svg { width: 24px; height: 24px; fill: currentColor; }
 
 .modal-body {
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
   color: var(--ink-100);
   line-height: 1.8;
   font-size: 0.95rem;
@@ -686,6 +924,11 @@ svg { width: 24px; height: 24px; fill: currentColor; }
 .volume-label { display: block; font-size: 0.85rem; color: var(--ink-300); margin-bottom: 8px; }
 
 .volume-slider {
+  /* Range-input fill direction vs. thumb direction is inconsistent across
+     browsers/webviews under dir="rtl". Forcing a plain LTR direction here
+     makes the gold fill and the thumb always move together, regardless of
+     the page's own RTL layout. */
+  direction: ltr;
   width: 100%;
   -webkit-appearance: none;
   appearance: none;
