@@ -13,12 +13,22 @@ const dom = new JSDOM(html, {
   resources: "usable",
   pretendToBeVisual: true,
   beforeParse(window) {
-    // Stub out things jsdom doesn't implement.
+    // jsdom doesn't implement real media playback, so .paused never moves on
+    // its own — back it with a real flag that play()/pause() actually flip,
+    // the same observable contract a real WebView gives the app.
+    Object.defineProperty(window.HTMLMediaElement.prototype, "paused", {
+      get() { return this._pausedState !== false; },
+      configurable: true
+    });
     window.HTMLMediaElement.prototype.play = function () {
+      this._pausedState = false;
       this.dispatchEvent(new window.Event("play"));
       return Promise.resolve();
     };
-    window.HTMLMediaElement.prototype.pause = function () {};
+    window.HTMLMediaElement.prototype.pause = function () {
+      this._pausedState = true;
+      this.dispatchEvent(new window.Event("pause"));
+    };
     window.AudioContext = function () {
       return {
         state: "running",
@@ -68,18 +78,33 @@ function step(label, fn) {
   }
 }
 
-// Let DOMContentLoaded fire, then fast-forward past the splash timers.
 setTimeout(() => {
   step("splash boot ran without throwing", () => {
     if (!doc.getElementById("splash-screen")) throw new Error("splash element missing");
   });
 
-  // Manually invoke the splash->menu transition logic since we don't want to
-  // wait 2 real seconds; simulate by directly showing main-menu as app.js would.
   step("navigate to main menu", () => {
     doc.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
     doc.getElementById("main-menu").classList.add("active");
     if (!doc.getElementById("main-menu").classList.contains("active")) throw new Error("menu not active");
+  });
+
+  step("music toggle icon reflects real play/pause state reactively", () => {
+    fireClick(doc.getElementById("btn-sound"));
+    const musicEl = doc.getElementById("bg-music");
+    const iconPlay = doc.getElementById("icon-play");
+    const iconPause = doc.getElementById("icon-pause");
+
+    musicEl.dispatchEvent(new window.Event("pause"));
+    if (iconPause.style.display !== "none") throw new Error("expected pause icon hidden while paused");
+
+    fireClick(doc.getElementById("music-toggle")); // should call play()
+    if (iconPlay.style.display !== "none") throw new Error("play icon should hide once playing");
+    if (iconPause.style.display === "none") throw new Error("pause icon should show once playing");
+
+    fireClick(doc.getElementById("music-toggle")); // should call pause()
+    if (iconPause.style.display !== "none") throw new Error("pause icon should hide once paused again");
+    fireClick(doc.querySelector('#sound-modal .modal-close'));
   });
 
   step("open and close how-to-play modal", () => {
@@ -89,16 +114,27 @@ setTimeout(() => {
     if (doc.getElementById("howto-modal").classList.contains("open")) throw new Error("modal did not close");
   });
 
-  step("open sound modal and move volume slider", () => {
-    fireClick(doc.getElementById("btn-sound"));
-    const slider = doc.getElementById("volume-slider");
-    slider.value = "0.3";
-    slider.dispatchEvent(new window.Event("input", { bubbles: true }));
-    fireClick(doc.querySelector('#sound-modal .modal-close'));
+  step("Play -> mode selection appears first and gates the Next button", () => {
+    fireClick(doc.getElementById("btn-play"));
+    if (!doc.getElementById("setup-step-mode").classList.contains("active")) {
+      throw new Error("mode step should be active first, not count/names");
+    }
+    if (!doc.getElementById("mode-next-btn").disabled) {
+      throw new Error("mode-next-btn should start disabled until a mode is chosen");
+    }
   });
 
-  step("click Play -> choose 2 players -> enter names -> start game", () => {
-    fireClick(doc.getElementById("btn-play"));
+  step("choose fixed-rounds tournament mode with 1 round", () => {
+    fireClick(doc.getElementById("mode-fixed-btn"));
+    if (doc.getElementById("rounds-stepper").hidden) throw new Error("rounds stepper should reveal for fixed mode");
+    if (doc.getElementById("mode-next-btn").disabled) throw new Error("mode-next-btn should enable once a mode is picked");
+    for (let i = 0; i < 5; i++) fireClick(doc.getElementById("rounds-minus-btn"));
+    if (doc.getElementById("rounds-value").textContent !== "1") throw new Error("rounds stepper floor should be 1");
+    fireClick(doc.getElementById("mode-next-btn"));
+    if (!doc.getElementById("setup-step-count").classList.contains("active")) throw new Error("did not advance to count step");
+  });
+
+  step("choose 2 players -> enter names -> start game", () => {
     const badges = doc.querySelectorAll(".count-badge");
     if (badges.length !== 10) throw new Error("expected 10 count badges, got " + badges.length);
     fireClick(badges[1]); // "2"
@@ -121,38 +157,54 @@ setTimeout(() => {
     if (!/^\d{1,2}\.\d{2}$/.test(txt)) throw new Error("target format invalid: " + txt);
   });
 
-  step("start/stop timer flow reveals a value instantly, no lingering hidden state", () => {
+  step("player 1's turn: start/stop reveals instantly, then advances (not last player)", () => {
     const startBtn = doc.getElementById("start-stop-btn");
     fireClick(startBtn); // START
-    if (doc.getElementById("timer-display").textContent === "--.--") {
-      // expected: should now show the hidden running indicator, not the placeholder
-    }
     if (startBtn.textContent !== "توقف") throw new Error("button did not switch to توقف");
-
     fireClick(startBtn); // STOP
     const revealed = doc.getElementById("timer-display").textContent;
     if (!/^\d+\.\d{2}$/.test(revealed)) throw new Error("revealed value not formatted X.XX: " + revealed);
-    if (!doc.getElementById("next-turn-btn").classList.contains("show")) throw new Error("next button not shown");
+    if (!doc.getElementById("next-turn-btn").classList.contains("show")) throw new Error("next button not shown for non-final player");
+    if (doc.getElementById("round-result-panel").hidden !== true) throw new Error("round-result should stay hidden until the LAST player goes");
   });
 
-  step("advance to player 2 turn", () => {
+  step("advance to player 2 turn (same round, same target)", () => {
+    const targetBefore = doc.getElementById("target-number").textContent;
     fireClick(doc.getElementById("next-turn-btn"));
     if (doc.getElementById("current-player-name").textContent !== "سارة") {
       throw new Error("expected player 2 to be سارة, got " + doc.getElementById("current-player-name").textContent);
     }
+    if (doc.getElementById("target-number").textContent !== targetBefore) {
+      throw new Error("target must stay the same for all players within one round");
+    }
   });
 
-  step("rankings modal opens and lists both players", () => {
-    fireClick(doc.getElementById("rankings-btn"));
-    const rows = doc.querySelectorAll(".rank-row");
-    if (rows.length !== 2) throw new Error("expected 2 ranking rows, got " + rows.length);
-    fireClick(doc.querySelector('#rankings-modal .modal-close'));
+  step("player 2 (last player) triggers the round-result panel automatically", () => {
+    const startBtn = doc.getElementById("start-stop-btn");
+    fireClick(startBtn); // START
+    fireClick(startBtn); // STOP
+    if (doc.getElementById("round-result-panel").hidden !== false) throw new Error("round-result panel should now be visible");
+    if (doc.getElementById("turn-play-area").hidden !== true) throw new Error("turn-play-area should be hidden during round-result");
+    const rows = doc.querySelectorAll(".round-result-row");
+    if (rows.length !== 2) throw new Error("expected 2 rows in round result, got " + rows.length);
   });
 
-  step("exit game shows confirm dialog and returns to menu", () => {
-    fireClick(doc.getElementById("exit-game-btn"));
-    if (!doc.getElementById("confirm-modal").classList.contains("open")) throw new Error("confirm modal did not open");
-    fireClick(doc.getElementById("confirm-yes"));
+  step("continuing through the only round reaches the tournament-end screen", () => {
+    if (doc.getElementById("round-continue-btn").textContent !== "عرض نتيجة البطولة") {
+      throw new Error("expected round-continue-btn to offer tournament result on the final round, got: " + doc.getElementById("round-continue-btn").textContent);
+    }
+    fireClick(doc.getElementById("round-continue-btn"));
+    if (!doc.getElementById("tournament-end-screen").classList.contains("active")) {
+      throw new Error("did not reach tournament-end screen");
+    }
+    const champion = doc.getElementById("champion-name").textContent;
+    if (!champion || champion === "—") throw new Error("champion name not set");
+    const standings = doc.querySelectorAll("#final-standings-list .rank-row");
+    if (standings.length !== 2) throw new Error("expected 2 rows in final standings, got " + standings.length);
+  });
+
+  step("return to main menu from tournament-end screen", () => {
+    fireClick(doc.getElementById("tournament-menu-btn"));
     if (!doc.getElementById("main-menu").classList.contains("active")) throw new Error("did not return to main menu");
   });
 
