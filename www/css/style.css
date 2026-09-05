@@ -330,6 +330,12 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   box-shadow: 0 10px 26px rgba(230, 57, 70, 0.3);
 }
 
+.menu-btn--rules {
+  background: linear-gradient(180deg, #a78bfa, var(--purple-500));
+  color: #1c1033;
+  box-shadow: 0 10px 26px rgba(139, 92, 246, 0.32);
+}
+
 .menu-footer {
   color: var(--ink-500);
   font-size: 0.78rem;
@@ -544,6 +550,135 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   background: linear-gradient(180deg, var(--green-400), var(--green-600));
   color: #04220f;
   box-shadow: 0 10px 26px rgba(31, 184, 94, 0.35);
+}
+
+/* ---------------- Custom rules screen ---------------- */
+
+#rules-screen { align-items: stretch; }
+
+.rules-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 20px;
+}
+
+.rule-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--navy-800);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  cursor: pointer;
+}
+
+.rule-radio {
+  margin-top: 3px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  accent-color: var(--gold-500);
+}
+
+.rule-option-card.selected {
+  border-color: var(--gold-500);
+  background: linear-gradient(180deg, rgba(245,180,0,0.12), var(--navy-800));
+  box-shadow: var(--shadow-gold);
+}
+
+.rule-option-body { display: flex; flex-direction: column; gap: 4px; }
+.rule-option-title { font-weight: 800; color: var(--ink-0); font-size: 1rem; }
+.rule-option-sub { font-size: 0.85rem; color: var(--ink-300); line-height: 1.6; }
+
+.rules-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  margin: 2px 0;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: var(--navy-800);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+}
+
+.toggle-row-label {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--ink-100);
+  line-height: 1.5;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 30px;
+  min-width: 50px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.15);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(180deg, var(--gold-400), var(--gold-500));
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(-20px);
+}
+
+.double-points-suboptions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-inline-start: 8px;
+  border-inline-start: 2px solid rgba(245, 180, 0, 0.3);
+}
+
+.double-points-suboptions[hidden] { display: none; }
+
+.rules-note {
+  font-size: 0.8rem;
+  color: var(--ink-500);
+  line-height: 1.7;
+  margin: 4px 0 0;
 }
 
 /* ---------------- Game screen ---------------- */
