@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Native platforms are generated fresh by the GitHub Actions workflow
+# (see .github/workflows/build-android.yml -> "npx cap add android").
+# We intentionally do NOT commit them, to keep the repository small.
+android/
+ios/
+
+# Build outputs
+*.apk
+*.aab
+dist/
+build/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
