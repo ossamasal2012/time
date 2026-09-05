@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<title>تحدّي الثانية</title>
+<link rel="icon" href="assets/images/logo.png" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ===================== SPLASH SCREEN ===================== -->
+<div id="splash-screen">
+  <div class="splash-glow"></div>
+  <img class="splash-logo" src="assets/images/logo.png" alt="تحدّي الثانية" />
+  <div class="splash-loader">
+    <div class="splash-loader-bar"></div>
+  </div>
+</div>
+
+<!-- ===================== APP ROOT ===================== -->
+<div id="app">
+
+  <!-- ---------- MAIN MENU ---------- -->
+  <section id="main-menu" class="screen">
+    <div class="menu-top">
+      <img class="menu-logo" src="assets/images/logo.png" alt="تحدّي الثانية" />
+      <h1 class="menu-title">تحدّي الثانية</h1>
+      <p class="menu-subtitle">اختبر إحساسك بالوقت... وأوقف المؤقت في اللحظة المثالية</p>
+    </div>
+    <div class="menu-buttons">
+      <button id="btn-play" class="btn menu-btn menu-btn--play">
+        <span class="menu-btn-icon">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </span>
+        <span>لعب</span>
+      </button>
+      <button id="btn-howto" class="btn menu-btn menu-btn--howto">
+        <span class="menu-btn-icon">
+          <svg viewBox="0 0 24 24"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
+        </span>
+        <span>كيفية اللعب</span>
+      </button>
+      <button id="btn-sound" class="btn menu-btn menu-btn--sound">
+        <span class="menu-btn-icon">
+          <svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+        </span>
+        <span>صوت</span>
+      </button>
+    </div>
+    <p class="menu-footer">تحدّي الثانية &copy; جميع الحقوق محفوظة</p>
+  </section>
+
+  <!-- ---------- PLAYER SETUP ---------- -->
+  <section id="setup-screen" class="screen">
+    <header class="sub-header">
+      <button class="icon-btn" id="setup-back-btn" aria-label="رجوع">
+        <svg viewBox="0 0 24 24"><path d="M17.5 3.5 8 12l9.5 8.5" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h2 id="setup-title">عدد اللاعبين</h2>
+      <span class="sub-header-spacer"></span>
+    </header>
+
+    <div id="setup-step-count" class="setup-step active">
+      <p class="setup-hint">اختر عدد اللاعبين (من 1 إلى 10)</p>
+      <div id="count-grid" class="count-grid"></div>
+      <button id="count-next-btn" class="btn primary-btn wide-btn" disabled>التالي</button>
+    </div>
+
+    <div id="setup-step-names" class="setup-step">
+      <p class="setup-hint">أدخل اسم كل لاعب</p>
+      <div id="names-wrap" class="names-wrap"></div>
+      <button id="start-game-btn" class="btn primary-btn wide-btn wide-btn--go">هيا إلى اللعب</button>
+    </div>
+  </section>
+
+  <!-- ---------- GAME SCREEN ---------- -->
+  <section id="game-screen" class="screen">
+    <header class="game-header">
+      <button class="icon-btn" id="exit-game-btn" aria-label="إنهاء اللعبة">
+        <svg viewBox="0 0 24 24"><path d="M10 21v-2H5V5h5V3H3v18h7zm5.5-5.5-1.42-1.42L16.17 12l-2.09-2.08L15.5 8.5 20 13l-4.5 4.5zM10 11h9v2h-9v-2z"/></svg>
+      </button>
+      <span id="round-label" class="round-label">الجولة 1</span>
+      <button class="icon-btn" id="rankings-btn" aria-label="ترتيب اللاعبين">
+        <svg viewBox="0 0 24 24"><path d="M7 15h2V9H7v6zm4 0h2V5h-2v10zm4 0h2v-4h-2v4zM4 19h16v2H4v-2z"/></svg>
+      </button>
+    </header>
+
+    <div class="turn-info">
+      <span class="turn-label">دور اللاعب</span>
+      <div class="turn-player-row">
+        <h2 id="current-player-name">—</h2>
+        <span class="turn-score-badge"><span id="current-player-score">0</span> نقطة</span>
+      </div>
+    </div>
+
+    <div class="target-panel">
+      <span class="target-label">الرقم المستهدف</span>
+      <div id="target-number" class="target-number">0.00</div>
+    </div>
+
+    <div class="timer-panel">
+      <div id="timer-display" class="timer-display">--.--</div>
+      <div id="result-banner" class="result-banner"></div>
+    </div>
+
+    <div class="game-actions">
+      <button id="start-stop-btn" class="btn timer-btn">ابدأ</button>
+      <button id="next-turn-btn" class="btn secondary-btn next-btn">التالي &#8592;</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===================== MODALS ===================== -->
+
+<div id="howto-modal" class="modal">
+  <div class="modal-sheet">
+    <header class="modal-header">
+      <h3>كيفية اللعب</h3>
+      <button class="icon-btn modal-close" data-close="howto-modal" aria-label="إغلاق">✕</button>
+    </header>
+    <div class="modal-body">
+      <p>🎯 <strong>الهدف:</strong> في كل جولة يظهر رقم مستهدف، مثل <span class="hl">3.00</span>. عند الضغط على زر (ابدأ) يبدأ المؤقّت بالعدّ، لكنه يختفي عن الشاشة فورًا — لا يمكنك رؤيته وهو يعمل!</p>
+      <p>⏱️ اعتمد على إحساسك بالوقت، واضغط زر (توقف) في اللحظة التي تشعر أنها تطابق الرقم المستهدف تمامًا. فور الضغط، يظهر الرقم الذي توقفت عنده مباشرة دون أي تأخير.</p>
+      <p>🏆 <strong>النقاط:</strong> تحصل على نقطة واحدة فقط إذا توقفت عند الرقم المطلوب بالضبط، حتى الخانتين العشريتين. الاقتراب الشديد مثل 2.99 من هدف 3.00 لا يمنحك أي نقطة.</p>
+      <p>👥 يمكن لأكثر من لاعب الحصول على نقطة في نفس الجولة إذا تطابق كل منهم مع الرقم المستهدف.</p>
+      <p>🔁 يلعب من لاعب واحد وحتى 10 لاعبين بالتناوب، وفي كل جولة جديدة يظهر رقم مختلف عشوائيًا.</p>
+      <p>📊 اضغط زر ترتيب اللاعبين في أي وقت أثناء اللعب لمعرفة نقاط وترتيب الجميع.</p>
+    </div>
+  </div>
+</div>
+
+<div id="sound-modal" class="modal">
+  <div class="modal-sheet">
+    <header class="modal-header">
+      <h3>الصوت والموسيقى</h3>
+      <button class="icon-btn modal-close" data-close="sound-modal" aria-label="إغلاق">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="sound-row">
+        <button id="music-toggle" class="btn round-icon-btn" aria-label="تشغيل/إيقاف">
+          <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <div class="sound-track-info">
+          <span class="sound-track-title">موسيقى اللعبة</span>
+          <span class="sound-track-sub">تعمل بدون إنترنت — تتوقف تلقائيًا أثناء التحدي</span>
+        </div>
+      </div>
+      <label class="volume-label" for="volume-slider">مستوى الصوت</label>
+      <input type="range" id="volume-slider" class="volume-slider" min="0" max="1" step="0.01" value="0.6" />
+    </div>
+  </div>
+</div>
+
+<div id="rankings-modal" class="modal">
+  <div class="modal-sheet">
+    <header class="modal-header">
+      <h3>ترتيب اللاعبين</h3>
+      <button class="icon-btn modal-close" data-close="rankings-modal" aria-label="إغلاق">✕</button>
+    </header>
+    <div class="modal-body">
+      <ul id="rankings-list" class="rankings-list"></ul>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-modal" class="modal">
+  <div class="modal-sheet modal-sheet--small">
+    <div class="modal-body">
+      <p id="confirm-message" class="confirm-message"></p>
+      <div class="confirm-actions">
+        <button id="confirm-no" class="btn secondary-btn">تراجع</button>
+        <button id="confirm-yes" class="btn danger-btn">تأكيد</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<audio id="bg-music" preload="auto"></audio>
+
+<script src="js/app.js"></script>
+</body>
+</html>
