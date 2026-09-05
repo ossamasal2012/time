@@ -36,6 +36,7 @@
     currentTrackIndex: 0,
     gameMode: null,        // "open" | "fixed"
     totalRounds: 5,
+    scoringRule: "default", // "default" | "customA" | "customB"
     roundAttempts: []      // elapsed seconds captured this round, indexed by player index
   };
 
@@ -51,7 +52,8 @@
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
         volume: state.musicVolume,
-        muted: state.muted
+        muted: state.muted,
+        scoringRule: state.scoringRule
       }));
     } catch (e) { /* ignore (private mode, etc.) */ }
   }
@@ -63,6 +65,9 @@
         var s = JSON.parse(raw);
         if (typeof s.volume === "number") state.musicVolume = s.volume;
         if (typeof s.muted === "boolean") state.muted = s.muted;
+        if (s.scoringRule === "default" || s.scoringRule === "customA" || s.scoringRule === "customB") {
+          state.scoringRule = s.scoringRule;
+        }
       }
     } catch (e) { /* ignore */ }
   }
@@ -154,11 +159,13 @@
     musicEl.loop = PLAYLIST.length === 1;
     musicEl.src = PLAYLIST[state.currentTrackIndex];
     musicEl.volume = state.musicVolume;
+    musicEl.load(); // some WebView builds need an explicit load() after setting src via JS
 
     if (PLAYLIST.length > 1) {
       musicEl.addEventListener("ended", function () {
         state.currentTrackIndex = (state.currentTrackIndex + 1) % PLAYLIST.length;
         musicEl.src = PLAYLIST[state.currentTrackIndex];
+        musicEl.load();
         musicEl.play().catch(function () {});
       });
     }
@@ -176,21 +183,37 @@
     updateSliderFill(slider);
   }
 
+  // Guaranteed fallback: some WebView builds never reliably reject the
+  // play() promise even when playback was blocked, so we can't depend on
+  // .catch() alone to know we need this. Instead we ALWAYS keep a
+  // first-interaction listener armed as a safety net, on top of the
+  // native fix (MainActivity disables the gesture requirement outright).
+  var gestureResumeArmed = false;
+  var GESTURE_EVENTS = ["pointerdown", "touchstart", "mousedown", "keydown"];
+
+  function armFirstGestureResume() {
+    if (gestureResumeArmed) return;
+    gestureResumeArmed = true;
+    var resume = function () {
+      GESTURE_EVENTS.forEach(function (evt) { document.removeEventListener(evt, resume, true); });
+      gestureResumeArmed = false;
+      if (!state.muted && musicEl.paused) {
+        musicEl.play().catch(function () {});
+      }
+    };
+    GESTURE_EVENTS.forEach(function (evt) {
+      document.addEventListener(evt, resume, { once: true, capture: true });
+    });
+  }
+
   function tryPlayMusic() {
     if (state.muted) return;
-    var p = musicEl.play();
-    if (p && p.catch) {
-      p.catch(function () {
-        // Autoplay was blocked by the WebView — resume automatically on the
-        // very first user interaction of any kind, then clean everything up.
-        var events = ["pointerdown", "touchstart", "mousedown", "keydown"];
-        var resume = function () {
-          events.forEach(function (evt) { document.removeEventListener(evt, resume); });
-          if (!state.muted) musicEl.play().catch(function () {});
-        };
-        events.forEach(function (evt) { document.addEventListener(evt, resume, { once: true }); });
-      });
-    }
+    try {
+      var p = musicEl.play();
+      if (p && p.catch) { p.catch(function () {}); }
+    } catch (e) { /* ignore */ }
+    // Arm the safety net regardless of the outcome above.
+    armFirstGestureResume();
   }
 
   function pauseMusic() { musicEl.pause(); }
@@ -246,6 +269,55 @@
 
   $("btn-howto").addEventListener("click", function () { openModal("howto-modal"); });
   $("btn-sound").addEventListener("click", function () { openModal("sound-modal"); });
+
+  /* ---------------- Custom rules screen ---------------- */
+
+  $("btn-rules").addEventListener("click", function () { showScreen("rules-screen"); });
+  $("rules-back-btn").addEventListener("click", function () { showScreen("main-menu"); });
+
+  function selectRule(rule) {
+    state.scoringRule = rule;
+    document.querySelectorAll(".rule-option-card").forEach(function (c) { c.classList.remove("selected"); });
+    var radioId = rule === "default" ? "rule-default-radio" : (rule === "customA" ? "rule-a-radio" : "rule-b-radio");
+    var radio = $(radioId);
+    radio.checked = true;
+    radio.closest(".rule-option-card").classList.add("selected");
+    saveSettings();
+  }
+
+  function applyRuleUIFromState() {
+    var isCustom = state.scoringRule === "customA" || state.scoringRule === "customB";
+    $("double-points-toggle").checked = isCustom;
+    $("double-points-suboptions").hidden = !isCustom;
+    selectRule(state.scoringRule);
+  }
+
+  $("rule-default-radio").addEventListener("change", function () {
+    if (this.checked) {
+      $("double-points-toggle").checked = false;
+      $("double-points-suboptions").hidden = true;
+      selectRule("default");
+    }
+  });
+
+  $("rule-a-radio").addEventListener("change", function () { if (this.checked) selectRule("customA"); });
+  $("rule-b-radio").addEventListener("change", function () { if (this.checked) selectRule("customB"); });
+
+  $("double-points-toggle").addEventListener("change", function () {
+    if (this.checked) {
+      $("double-points-suboptions").hidden = false;
+      if ($("rule-a-radio").checked || $("rule-b-radio").checked) {
+        selectRule($("rule-b-radio").checked ? "customB" : "customA");
+      } else {
+        $("rule-a-radio").checked = true;
+        selectRule("customA");
+      }
+    } else {
+      $("double-points-suboptions").hidden = true;
+      $("rule-default-radio").checked = true;
+      selectRule("default");
+    }
+  });
 
   /* ---------------- Player setup ---------------- */
 
@@ -451,30 +523,54 @@
     renderGameTurn();
   });
 
-  /* ---------------- Round scoring: closest to the target wins (ties share the point) ---------------- */
+  /* ---------------- Round scoring ---------------- */
+  /*
+   * Three selectable rule sets (state.scoringRule):
+   *   - "default": the closest player to the target always wins 1 point,
+   *     even on an exact hit. Ties share the point.
+   *   - "customA": an exact hit wins 2 points; if nobody is exact, the
+   *     closest (non-exact) player wins 1 point instead. Ties share.
+   *   - "customB": an exact hit wins 2 points; if nobody is exact, no one
+   *     scores that round at all. Ties share.
+   *
+   * With a single player there is no one to compare against, so "closest"
+   * would trivially always be true — every rule set therefore falls back
+   * to requiring an exact hit for solo play, worth the rule's normal
+   * exact-hit point value (1 for default, 2 for the custom rules).
+   */
 
-  function finishRound() {
-    var winnerIndexes;
+  function computeRoundWinners() {
+    var deviations = state.roundAttempts.map(function (v) { return Math.abs(v - state.target); });
+    var exactIndexes = [];
+    deviations.forEach(function (d, i) { if (d < 0.001) exactIndexes.push(i); });
 
     if (state.players.length === 1) {
-      // With a single player there is no one to compare against, so
-      // "closest" would trivially always be true. Require an exact match
-      // instead — the only version of the rule that keeps solo play a
-      // real challenge.
-      var v = state.roundAttempts[0];
-      winnerIndexes = Math.abs(v - state.target) < 0.001 ? [0] : [];
-    } else {
-      var deviations = state.roundAttempts.map(function (val) { return Math.abs(val - state.target); });
-      var minDev = Math.min.apply(null, deviations);
-      winnerIndexes = [];
-      deviations.forEach(function (d, i) {
-        if (Math.abs(d - minDev) < 0.001) winnerIndexes.push(i);
-      });
+      if (exactIndexes.length === 0) return [];
+      var soloPoints = state.scoringRule === "default" ? 1 : 2;
+      return [{ index: 0, points: soloPoints }];
     }
 
-    winnerIndexes.forEach(function (i) { state.players[i].score += 1; });
+    if (state.scoringRule === "customA" || state.scoringRule === "customB") {
+      if (exactIndexes.length > 0) {
+        return exactIndexes.map(function (i) { return { index: i, points: 2 }; });
+      }
+      if (state.scoringRule === "customB") return []; // no fallback — nobody scores
+      // customA falls through to the normal closest-wins-1-point logic below
+    }
 
-    renderRoundResult(winnerIndexes);
+    var minDev = Math.min.apply(null, deviations);
+    var winners = [];
+    deviations.forEach(function (d, i) {
+      if (Math.abs(d - minDev) < 0.001) winners.push(i);
+    });
+    return winners.map(function (i) { return { index: i, points: 1 }; });
+  }
+
+  function finishRound() {
+    var winners = computeRoundWinners();
+    winners.forEach(function (w) { state.players[w.index].score += w.points; });
+
+    renderRoundResult(winners);
 
     $("turn-play-area").hidden = true;
     $("round-result-panel").hidden = false;
@@ -483,9 +579,12 @@
     $("round-continue-btn").textContent = isFinalRound ? "عرض نتيجة البطولة" : "الجولة التالية";
   }
 
-  function renderRoundResult(winnerIndexes) {
+  function renderRoundResult(winners) {
     $("round-result-round-num").textContent = state.round;
     $("round-result-target").textContent = state.target.toFixed(2);
+
+    var winnerMap = {};
+    winners.forEach(function (w) { winnerMap[w.index] = w.points; });
 
     var order = state.players.map(function (p, i) { return i; });
     order.sort(function (a, b) {
@@ -495,25 +594,24 @@
     var medals = ["🥇", "🥈", "🥉"];
     var html = "";
     order.forEach(function (i, rank) {
-      var isWinner = winnerIndexes.indexOf(i) !== -1;
+      var points = winnerMap[i];
       var medal = rank < 3 ? medals[rank] : (rank + 1) + ".";
-      html += '<li class="round-result-row' + (isWinner ? ' winner' : '') + '">' +
+      html += '<li class="round-result-row' + (points ? ' winner' : '') + '">' +
                 '<span class="round-result-medal">' + medal + '</span>' +
                 '<span class="round-result-name">' + escapeHtml(state.players[i].name) + '</span>' +
                 '<span class="round-result-value">' + state.roundAttempts[i].toFixed(2) + '</span>' +
-                (isWinner ? '<span class="round-result-point">+1</span>' : '') +
+                (points ? '<span class="round-result-point">+' + points + '</span>' : '') +
               '</li>';
     });
     $("round-result-list").innerHTML = html;
 
-    var winnerNames = winnerIndexes.map(function (i) { return state.players[i].name; });
     var banner = $("round-result-winner-banner");
-    if (winnerNames.length === 0) {
+    if (winners.length === 0) {
       banner.textContent = "لم يُصب أحد الرقم المستهدف هذه الجولة";
-    } else if (winnerNames.length === 1) {
-      banner.textContent = "🏆 نقطة الجولة لـ: " + winnerNames[0];
     } else {
-      banner.textContent = "🏆 نقطة الجولة لـ: " + winnerNames.join("، ");
+      var pointsLabel = winners[0].points === 2 ? "نقطتان" : "نقطة";
+      var winnerNames = winners.map(function (w) { return state.players[w.index].name; });
+      banner.textContent = "🏆 " + pointsLabel + " الجولة لـ: " + winnerNames.join("، ");
     }
   }
 
@@ -588,6 +686,7 @@
   window.addEventListener("DOMContentLoaded", function () {
     loadSettings();
     initMusic();
+    applyRuleUIFromState();
 
     setTimeout(function () {
       $("splash-screen").classList.add("fade-out");
