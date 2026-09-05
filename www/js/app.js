@@ -30,10 +30,13 @@
     timerRunning: false,
     startTs: 0,
     pendingCount: null,
-    musicWasPlayingBeforeGame: false,
-    soundOn: true,
+    wasPlayingBeforeGame: false,
     musicVolume: 0.6,
-    currentTrackIndex: 0
+    muted: false,
+    currentTrackIndex: 0,
+    gameMode: null,        // "open" | "fixed"
+    totalRounds: 5,
+    roundAttempts: []      // elapsed seconds captured this round, indexed by player index
   };
 
   /* ---------------- DOM shortcuts ---------------- */
@@ -48,7 +51,7 @@
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
         volume: state.musicVolume,
-        soundOn: state.soundOn
+        muted: state.muted
       }));
     } catch (e) { /* ignore (private mode, etc.) */ }
   }
@@ -59,7 +62,7 @@
       if (raw) {
         var s = JSON.parse(raw);
         if (typeof s.volume === "number") state.musicVolume = s.volume;
-        if (typeof s.soundOn === "boolean") state.soundOn = s.soundOn;
+        if (typeof s.muted === "boolean") state.muted = s.muted;
       }
     } catch (e) { /* ignore */ }
   }
@@ -104,6 +107,11 @@
 
     yesBtn.addEventListener("click", onYesHandler);
     noBtn.addEventListener("click", onNoHandler);
+  }
+
+  function escapeHtml(str) {
+    var map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+    return String(str).replace(/[&<>"']/g, function (c) { return map[c]; });
   }
 
   /* ---------------- Click sound effect (synthesized, no audio file needed) ---------------- */
@@ -155,23 +163,32 @@
       });
     }
 
+    // The play/pause icon always reflects the audio element's REAL state,
+    // updated reactively via these events — never guessed synchronously
+    // right after calling play()/pause(), since play() is asynchronous
+    // and checking musicEl.paused immediately after calling it is stale.
+    musicEl.addEventListener("play", updateMusicToggleIcon);
+    musicEl.addEventListener("pause", updateMusicToggleIcon);
     updateMusicToggleIcon();
+
     var slider = $("volume-slider");
     slider.value = state.musicVolume;
     updateSliderFill(slider);
   }
 
   function tryPlayMusic() {
-    if (!state.soundOn) return;
+    if (state.muted) return;
     var p = musicEl.play();
     if (p && p.catch) {
       p.catch(function () {
-        // Autoplay was blocked — resume automatically on the very first tap.
+        // Autoplay was blocked by the WebView — resume automatically on the
+        // very first user interaction of any kind, then clean everything up.
+        var events = ["pointerdown", "touchstart", "mousedown", "keydown"];
         var resume = function () {
-          musicEl.play().catch(function () {});
-          document.removeEventListener("pointerdown", resume);
+          events.forEach(function (evt) { document.removeEventListener(evt, resume); });
+          if (!state.muted) musicEl.play().catch(function () {});
         };
-        document.addEventListener("pointerdown", resume, { once: true });
+        events.forEach(function (evt) { document.addEventListener(evt, resume, { once: true }); });
       });
     }
   }
@@ -179,20 +196,19 @@
   function pauseMusic() { musicEl.pause(); }
 
   function updateMusicToggleIcon() {
-    var isPlaying = state.soundOn && !musicEl.paused;
+    var isPlaying = !musicEl.paused;
     $("icon-play").style.display = isPlaying ? "none" : "";
     $("icon-pause").style.display = isPlaying ? "" : "none";
   }
 
   $("music-toggle").addEventListener("click", function () {
     if (musicEl.paused) {
-      state.soundOn = true;
+      state.muted = false;
       tryPlayMusic();
     } else {
-      state.soundOn = false;
+      state.muted = true;
       pauseMusic();
     }
-    updateMusicToggleIcon();
     saveSettings();
   });
 
@@ -211,10 +227,20 @@
   /* ---------------- Main menu ---------------- */
 
   $("btn-play").addEventListener("click", function () {
+    // Reset all setup state to a clean slate every time "لعب" is pressed.
     state.pendingCount = null;
+    state.gameMode = null;
+    state.totalRounds = 5;
+
+    document.querySelectorAll(".mode-card").forEach(function (c) { c.classList.remove("selected"); });
+    $("rounds-stepper").hidden = true;
+    $("rounds-value").textContent = "5";
+    $("mode-next-btn").disabled = true;
+
     document.querySelectorAll(".count-badge").forEach(function (b) { b.classList.remove("selected"); });
     $("count-next-btn").disabled = true;
-    goToSetupStep("count");
+
+    goToSetupStep("mode");
     showScreen("setup-screen");
   });
 
@@ -223,24 +249,57 @@
 
   /* ---------------- Player setup ---------------- */
 
-  var setupStep = "count";
+  var setupStep = "mode";
 
   function goToSetupStep(step) {
     setupStep = step;
     document.querySelectorAll(".setup-step").forEach(function (s) { s.classList.remove("active"); });
     $("setup-step-" + step).classList.add("active");
-    $("setup-title").textContent = step === "count" ? "عدد اللاعبين" : "أسماء اللاعبين";
+    var titles = { mode: "طريقة اللعب", count: "عدد اللاعبين", names: "أسماء اللاعبين" };
+    $("setup-title").textContent = titles[step];
   }
 
   $("setup-back-btn").addEventListener("click", function () {
-    if (setupStep === "names") {
-      goToSetupStep("count");
-    } else {
-      showScreen("main-menu");
-    }
+    if (setupStep === "names") goToSetupStep("count");
+    else if (setupStep === "count") goToSetupStep("mode");
+    else showScreen("main-menu");
   });
 
-  // Build the 1–10 player-count grid once.
+  // --- Mode selection ---
+
+  $("mode-open-btn").addEventListener("click", function () {
+    document.querySelectorAll(".mode-card").forEach(function (c) { c.classList.remove("selected"); });
+    $("mode-open-btn").classList.add("selected");
+    state.gameMode = "open";
+    $("rounds-stepper").hidden = true;
+    $("mode-next-btn").disabled = false;
+  });
+
+  $("mode-fixed-btn").addEventListener("click", function () {
+    document.querySelectorAll(".mode-card").forEach(function (c) { c.classList.remove("selected"); });
+    $("mode-fixed-btn").classList.add("selected");
+    state.gameMode = "fixed";
+    $("rounds-stepper").hidden = false;
+    $("mode-next-btn").disabled = false;
+  });
+
+  $("rounds-minus-btn").addEventListener("click", function () {
+    state.totalRounds = Math.max(1, state.totalRounds - 1);
+    $("rounds-value").textContent = state.totalRounds;
+  });
+
+  $("rounds-plus-btn").addEventListener("click", function () {
+    state.totalRounds = Math.min(50, state.totalRounds + 1);
+    $("rounds-value").textContent = state.totalRounds;
+  });
+
+  $("mode-next-btn").addEventListener("click", function () {
+    if (!state.gameMode) return;
+    goToSetupStep("count");
+  });
+
+  // --- Player count ---
+
   (function buildCountGrid() {
     var grid = $("count-grid");
     for (var n = 1; n <= 10; n++) {
@@ -290,15 +349,16 @@
     }
   }
 
+  // --- Start game ---
+
   $("start-game-btn").addEventListener("click", function () {
     var inputs = document.querySelectorAll(".name-input");
     state.players = Array.prototype.map.call(inputs, function (inp, idx) {
       var val = inp.value.trim();
       return { name: val || ("اللاعب " + (idx + 1)), score: 0 };
     });
-    state.currentIndex = 0;
     state.round = 1;
-    state.musicWasPlayingBeforeGame = state.soundOn && !musicEl.paused;
+    state.wasPlayingBeforeGame = !musicEl.paused;
     pauseMusic();
     startNewRound();
     showScreen("game-screen");
@@ -315,7 +375,12 @@
 
   function startNewRound() {
     state.target = pickRandomTarget();
+    state.currentIndex = 0;
     state.timerRunning = false;
+    state.roundAttempts = new Array(state.players.length).fill(null);
+
+    $("round-result-panel").hidden = true;
+    $("turn-play-area").hidden = false;
     renderGameTurn();
   }
 
@@ -366,51 +431,142 @@
     timerDisplay.classList.add("revealed");
     btn.disabled = true;
 
-    var isHit = Math.abs(elapsedSec - state.target) < 0.001;
-    if (isHit) {
-      currentPlayer().score += 1;
-      $("current-player-score").textContent = currentPlayer().score;
+    state.roundAttempts[state.currentIndex] = elapsedSec;
+
+    var isLastPlayer = state.currentIndex === state.players.length - 1;
+
+    if (isLastPlayer) {
+      // Everyone has gone this round — figure out who was closest right away.
+      finishRound();
+    } else {
+      var banner = $("result-banner");
+      banner.textContent = "توقفت عند: " + elapsedSec.toFixed(2) + " — دور اللاعب التالي";
+      banner.classList.add("show");
+      $("next-turn-btn").classList.add("show");
     }
-
-    var banner = $("result-banner");
-    banner.textContent = isHit ? "🎯 إصابة تامة! +1 نقطة" : "لم تُصب الرقم — حاول في الجولة القادمة";
-    banner.classList.toggle("hit", isHit);
-    banner.classList.toggle("miss", !isHit);
-    banner.classList.add("show");
-
-    $("next-turn-btn").classList.add("show");
   });
 
   $("next-turn-btn").addEventListener("click", function () {
     state.currentIndex++;
-    if (state.currentIndex >= state.players.length) {
-      state.currentIndex = 0;
+    renderGameTurn();
+  });
+
+  /* ---------------- Round scoring: closest to the target wins (ties share the point) ---------------- */
+
+  function finishRound() {
+    var winnerIndexes;
+
+    if (state.players.length === 1) {
+      // With a single player there is no one to compare against, so
+      // "closest" would trivially always be true. Require an exact match
+      // instead — the only version of the rule that keeps solo play a
+      // real challenge.
+      var v = state.roundAttempts[0];
+      winnerIndexes = Math.abs(v - state.target) < 0.001 ? [0] : [];
+    } else {
+      var deviations = state.roundAttempts.map(function (val) { return Math.abs(val - state.target); });
+      var minDev = Math.min.apply(null, deviations);
+      winnerIndexes = [];
+      deviations.forEach(function (d, i) {
+        if (Math.abs(d - minDev) < 0.001) winnerIndexes.push(i);
+      });
+    }
+
+    winnerIndexes.forEach(function (i) { state.players[i].score += 1; });
+
+    renderRoundResult(winnerIndexes);
+
+    $("turn-play-area").hidden = true;
+    $("round-result-panel").hidden = false;
+
+    var isFinalRound = state.gameMode === "fixed" && state.round >= state.totalRounds;
+    $("round-continue-btn").textContent = isFinalRound ? "عرض نتيجة البطولة" : "الجولة التالية";
+  }
+
+  function renderRoundResult(winnerIndexes) {
+    $("round-result-round-num").textContent = state.round;
+    $("round-result-target").textContent = state.target.toFixed(2);
+
+    var order = state.players.map(function (p, i) { return i; });
+    order.sort(function (a, b) {
+      return Math.abs(state.roundAttempts[a] - state.target) - Math.abs(state.roundAttempts[b] - state.target);
+    });
+
+    var medals = ["🥇", "🥈", "🥉"];
+    var html = "";
+    order.forEach(function (i, rank) {
+      var isWinner = winnerIndexes.indexOf(i) !== -1;
+      var medal = rank < 3 ? medals[rank] : (rank + 1) + ".";
+      html += '<li class="round-result-row' + (isWinner ? ' winner' : '') + '">' +
+                '<span class="round-result-medal">' + medal + '</span>' +
+                '<span class="round-result-name">' + escapeHtml(state.players[i].name) + '</span>' +
+                '<span class="round-result-value">' + state.roundAttempts[i].toFixed(2) + '</span>' +
+                (isWinner ? '<span class="round-result-point">+1</span>' : '') +
+              '</li>';
+    });
+    $("round-result-list").innerHTML = html;
+
+    var winnerNames = winnerIndexes.map(function (i) { return state.players[i].name; });
+    var banner = $("round-result-winner-banner");
+    if (winnerNames.length === 0) {
+      banner.textContent = "لم يُصب أحد الرقم المستهدف هذه الجولة";
+    } else if (winnerNames.length === 1) {
+      banner.textContent = "🏆 نقطة الجولة لـ: " + winnerNames[0];
+    } else {
+      banner.textContent = "🏆 نقطة الجولة لـ: " + winnerNames.join("، ");
+    }
+  }
+
+  $("round-continue-btn").addEventListener("click", function () {
+    var isFinalRound = state.gameMode === "fixed" && state.round >= state.totalRounds;
+    if (isFinalRound) {
+      showTournamentEnd();
+    } else {
       state.round++;
       startNewRound();
-    } else {
-      renderGameTurn();
     }
   });
 
-  /* ---------------- Rankings ---------------- */
+  /* ---------------- Tournament end ---------------- */
 
-  function escapeHtml(str) {
-    var map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-    return String(str).replace(/[&<>"']/g, function (c) { return map[c]; });
+  function showTournamentEnd() {
+    var sorted = state.players.slice().sort(function (a, b) { return b.score - a.score; });
+    var topScore = sorted[0].score;
+    var champions = sorted.filter(function (p) { return p.score === topScore; });
+
+    $("champion-name").textContent = champions.map(function (p) { return p.name; }).join(" و ");
+
+    var html = "";
+    sorted.forEach(function (p, i) {
+      html += '<li class="rank-row">' +
+                '<span class="rank-pos">' + (i + 1) + '</span>' +
+                '<span class="rank-name">' + escapeHtml(p.name) + '</span>' +
+                '<span class="rank-score">' + p.score + '</span>' +
+              '</li>';
+    });
+    $("final-standings-list").innerHTML = html;
+
+    showScreen("tournament-end-screen");
   }
+
+  $("tournament-menu-btn").addEventListener("click", function () {
+    showScreen("main-menu");
+    if (state.wasPlayingBeforeGame) tryPlayMusic();
+  });
+
+  /* ---------------- Rankings (mid-game) ---------------- */
 
   function renderRankings() {
     var sorted = state.players.slice().sort(function (a, b) { return b.score - a.score; });
-    var list = $("rankings-list");
     var html = "";
-    for (var i = 0; i < sorted.length; i++) {
+    sorted.forEach(function (p, i) {
       html += '<li class="rank-row">' +
                 '<span class="rank-pos">' + (i + 1) + '</span>' +
-                '<span class="rank-name">' + escapeHtml(sorted[i].name) + '</span>' +
-                '<span class="rank-score">' + sorted[i].score + '</span>' +
+                '<span class="rank-name">' + escapeHtml(p.name) + '</span>' +
+                '<span class="rank-score">' + p.score + '</span>' +
               '</li>';
-    }
-    list.innerHTML = html;
+    });
+    $("rankings-list").innerHTML = html;
   }
 
   $("rankings-btn").addEventListener("click", function () {
@@ -423,7 +579,7 @@
   $("exit-game-btn").addEventListener("click", function () {
     showConfirm("هل تريد إنهاء اللعبة الحالية والعودة للقائمة الرئيسية؟", function () {
       showScreen("main-menu");
-      if (state.musicWasPlayingBeforeGame) tryPlayMusic();
+      if (state.wasPlayingBeforeGame) tryPlayMusic();
     });
   });
 
