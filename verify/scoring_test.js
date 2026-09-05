@@ -4,87 +4,173 @@ const { JSDOM } = require("jsdom");
 
 const htmlPath = path.join(__dirname, "..", "www", "index.html");
 const html = fs.readFileSync(htmlPath, "utf-8");
-const errors = [];
 
-const dom = new JSDOM(html, {
-  url: "file://" + htmlPath,
-  runScripts: "dangerously",
-  resources: "usable",
-  pretendToBeVisual: true,
-  beforeParse(window) {
-    window.HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
-    window.HTMLMediaElement.prototype.pause = function () {};
-    window.AudioContext = function () {
-      return {
-        state: "running", currentTime: 0, resume() {},
-        createOscillator() { return { type: "", frequency: { setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){return this;}, start(){}, stop(){} }; },
-        createGain() { return { gain: { setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){return this;} }; },
-        destination: {}
+function makeGame() {
+  const errors = [];
+  const dom = new JSDOM(html, {
+    url: "file://" + htmlPath,
+    runScripts: "dangerously",
+    resources: "usable",
+    pretendToBeVisual: true,
+    beforeParse(window) {
+      window.HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+      window.HTMLMediaElement.prototype.pause = function () {};
+      window.AudioContext = function () {
+        return {
+          state: "running", currentTime: 0, resume() {},
+          createOscillator() { return { type: "", frequency: { setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){return this;}, start(){}, stop(){} }; },
+          createGain() { return { gain: { setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){return this;} }; },
+          destination: {}
+        };
       };
-    };
-    window.addEventListener("error", (e) => errors.push(e.error ? e.error.stack : e.message));
+      window.addEventListener("error", (e) => errors.push(e.error ? e.error.stack : e.message));
+      let fakeNow = 0;
+      window.performance.now = () => fakeNow;
+      window.__setFakeNow = (v) => { fakeNow = v; };
+    }
+  });
+  return { dom, errors };
+}
 
-    // Mock performance.now() so we can dictate exact elapsed durations.
-    let fakeNow = 0;
-    window.performance.now = () => fakeNow;
-    window.__setFakeNow = (v) => { fakeNow = v; };
-  }
-});
+function fireClick(window, el) { el.dispatchEvent(new window.MouseEvent("click", { bubbles: true })); }
 
-const { window } = dom;
-const doc = window.document;
-function fireClick(el) { el.dispatchEvent(new window.MouseEvent("click", { bubbles: true })); }
-
-setTimeout(() => {
+function setupGame(window, doc, playerNames, roundCount) {
   doc.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   doc.getElementById("main-menu").classList.add("active");
 
-  fireClick(doc.getElementById("btn-play"));
-  fireClick(doc.querySelectorAll(".count-badge")[0]); // 1 player
-  fireClick(doc.getElementById("count-next-btn"));
-  doc.querySelectorAll(".name-input")[0].value = "لاعب الاختبار";
-  fireClick(doc.getElementById("start-game-btn"));
+  fireClick(window, doc.getElementById("btn-play"));
+  fireClick(window, doc.getElementById("mode-fixed-btn"));
+  // stepper defaults to 5 -> bring to roundCount
+  let current = 5;
+  while (current > roundCount) { fireClick(window, doc.getElementById("rounds-minus-btn")); current--; }
+  while (current < roundCount) { fireClick(window, doc.getElementById("rounds-plus-btn")); current++; }
+  fireClick(window, doc.getElementById("mode-next-btn"));
 
-  const target = parseFloat(doc.getElementById("target-number").textContent);
-  console.log("Target for this round:", target.toFixed(2));
+  const badges = doc.querySelectorAll(".count-badge");
+  fireClick(window, badges[playerNames.length - 1]);
+  fireClick(window, doc.getElementById("count-next-btn"));
 
-  // --- Case 1: stop EXACTLY on target -> must score a point ---
+  const nameInputs = doc.querySelectorAll(".name-input");
+  playerNames.forEach((name, i) => { nameInputs[i].value = name; });
+  fireClick(window, doc.getElementById("start-game-btn"));
+}
+
+function playTurn(window, doc, elapsedSeconds) {
+  const startBtn = doc.getElementById("start-stop-btn");
   window.__setFakeNow(0);
-  fireClick(doc.getElementById("start-stop-btn")); // START at t=0
-  window.__setFakeNow(target * 1000); // exactly target seconds later
-  fireClick(doc.getElementById("start-stop-btn")); // STOP
+  fireClick(window, startBtn);
+  window.__setFakeNow(elapsedSeconds * 1000);
+  fireClick(window, startBtn);
+}
 
-  const revealed1 = doc.getElementById("timer-display").textContent;
-  const scoreAfterExact = parseInt(doc.getElementById("current-player-score").textContent, 10);
-  console.log("Case 1 (exact): revealed =", revealed1, "| score =", scoreAfterExact, "| expected 1");
-  if (scoreAfterExact !== 1) { console.log("✘ FAILED: exact match should award a point"); process.exitCode = 1; }
-  else console.log("✔ exact match correctly awarded a point");
+function scoreOf(doc, name) {
+  const rows = doc.querySelectorAll("#round-result-list .round-result-row");
+  for (const row of rows) {
+    if (row.querySelector(".round-result-name").textContent === name) {
+      return row.classList.contains("winner");
+    }
+  }
+  throw new Error("player not found in round result: " + name);
+}
 
-  const bannerHit = doc.getElementById("result-banner").classList.contains("hit");
-  console.log(bannerHit ? "✔ banner shows hit state" : "✘ banner missing hit state");
+let anyFailure = false;
+function check(label, cond) {
+  if (cond) { console.log("✔", label); }
+  else { console.log("✘ FAILED:", label); anyFailure = true; }
+}
 
-  // advance to next round (only 1 player -> wraps back to same player, new target)
-  fireClick(doc.getElementById("next-turn-btn"));
-  const newTarget = parseFloat(doc.getElementById("target-number").textContent);
-  console.log("New round target:", newTarget.toFixed(2));
+/* ---------- Scenario 1: solo play requires an EXACT match ---------- */
+(() => {
+  const { dom, errors } = makeGame();
+  const { window } = dom;
+  const doc = window.document;
+  setTimeout(() => {
+    setupGame(window, doc, ["اللاعب المنفرد"], 5);
+    const target = parseFloat(doc.getElementById("target-number").textContent);
 
-  // --- Case 2: stop 0.01s OFF target -> must NOT score ---
-  const scoreBefore = parseInt(doc.getElementById("current-player-score").textContent, 10);
-  window.__setFakeNow(0);
-  fireClick(doc.getElementById("start-stop-btn")); // START
-  const offTarget = Math.max(0, newTarget - 0.01);
-  window.__setFakeNow(offTarget * 1000);
-  fireClick(doc.getElementById("start-stop-btn")); // STOP
+    playTurn(window, doc, target); // exact
+    const scoreExact = parseInt(doc.getElementById("current-player-score").textContent, 10);
+    // score display only updates on the NEXT render, so read it from round-result instead:
+    const wonExact = scoreOf(doc, "اللاعب المنفرد");
+    check("Scenario 1a: solo exact match wins the round", wonExact === true);
 
-  const revealed2 = doc.getElementById("timer-display").textContent;
-  const scoreAfterMiss = parseInt(doc.getElementById("current-player-score").textContent, 10);
-  console.log("Case 2 (near-miss -0.01): revealed =", revealed2, "| score =", scoreAfterMiss, "| expected", scoreBefore);
-  if (scoreAfterMiss !== scoreBefore) { console.log("✘ FAILED: near-miss should NOT award a point"); process.exitCode = 1; }
-  else console.log("✔ near-miss correctly awarded no point");
+    fireClick(window, doc.getElementById("round-continue-btn"));
+    const target2 = parseFloat(doc.getElementById("target-number").textContent);
+    playTurn(window, doc, Math.max(0, target2 - 0.01)); // near miss
+    const wonMiss = scoreOf(doc, "اللاعب المنفرد");
+    check("Scenario 1b: solo near-miss (-0.01) wins nothing", wonMiss === false);
 
-  const bannerMiss = doc.getElementById("result-banner").classList.contains("miss");
-  console.log(bannerMiss ? "✔ banner shows miss state" : "✘ banner missing miss state");
+    check("Scenario 1: no runtime errors", errors.length === 0);
+  }, 300);
+})();
 
-  console.log("\nwindow errors captured:", errors.length ? errors : "(none)");
-  if (errors.length) process.exitCode = 1;
-}, 300);
+/* ---------- Scenario 2: two players, one clearly closer ---------- */
+(() => {
+  const { dom, errors } = makeGame();
+  const { window } = dom;
+  const doc = window.document;
+  setTimeout(() => {
+    setupGame(window, doc, ["قريب", "بعيد"], 5);
+    const target = parseFloat(doc.getElementById("target-number").textContent);
+
+    playTurn(window, doc, target); // "قريب" stops exactly on target
+    fireClick(window, doc.getElementById("next-turn-btn"));
+    playTurn(window, doc, Math.min(14, target + 0.5)); // "بعيد" is way off
+
+    const closeWon = scoreOf(doc, "قريب");
+    const farWon = scoreOf(doc, "بعيد");
+    check("Scenario 2: the closer player wins the point", closeWon === true);
+    check("Scenario 2: the farther player wins nothing", farWon === false);
+    check("Scenario 2: no runtime errors", errors.length === 0);
+  }, 300);
+})();
+
+/* ---------- Scenario 3: two players tie for closest -> BOTH score ---------- */
+(() => {
+  const { dom, errors } = makeGame();
+  const { window } = dom;
+  const doc = window.document;
+  setTimeout(() => {
+    setupGame(window, doc, ["أ", "ب"], 5);
+    const target = parseFloat(doc.getElementById("target-number").textContent);
+
+    // Both land exactly 0.02 away from target (one under, one over) -> tied distance.
+    const low = Math.max(0.5, +(target - 0.02).toFixed(2));
+    const high = Math.min(14, +(target + 0.02).toFixed(2));
+
+    playTurn(window, doc, low);
+    fireClick(window, doc.getElementById("next-turn-btn"));
+    playTurn(window, doc, high);
+
+    const aWon = scoreOf(doc, "أ");
+    const bWon = scoreOf(doc, "ب");
+    check("Scenario 3: tied-distance player A also wins the point", aWon === true);
+    check("Scenario 3: tied-distance player B also wins the point", bWon === true);
+    check("Scenario 3: no runtime errors", errors.length === 0);
+  }, 300);
+})();
+
+/* ---------- Scenario 4: three players, only the single closest wins ---------- */
+(() => {
+  const { dom, errors } = makeGame();
+  const { window } = dom;
+  const doc = window.document;
+  setTimeout(() => {
+    setupGame(window, doc, ["الأقرب", "متوسط", "الأبعد"], 5);
+    const target = parseFloat(doc.getElementById("target-number").textContent);
+
+    playTurn(window, doc, target); // exact
+    fireClick(window, doc.getElementById("next-turn-btn"));
+    playTurn(window, doc, Math.max(0.5, +(target - 0.05).toFixed(2)));
+    fireClick(window, doc.getElementById("next-turn-btn"));
+    playTurn(window, doc, Math.min(14, +(target + 0.3).toFixed(2)));
+
+    check("Scenario 4: closest player wins", scoreOf(doc, "الأقرب") === true);
+    check("Scenario 4: middling player wins nothing", scoreOf(doc, "متوسط") === false);
+    check("Scenario 4: farthest player wins nothing", scoreOf(doc, "الأبعد") === false);
+    check("Scenario 4: no runtime errors", errors.length === 0);
+
+    console.log("\n" + (anyFailure ? "SOME CHECKS FAILED" : "ALL CHECKS PASSED"));
+    process.exitCode = anyFailure ? 1 : 0;
+  }, 300);
+})();
