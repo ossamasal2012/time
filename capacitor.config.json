@@ -1,0 +1,10 @@
+{
+  "appId": "com.secondchallenge.game",
+  "appName": "تحدي الثانية",
+  "webDir": "www",
+  "backgroundColor": "#0a1128",
+  "android": {
+    "backgroundColor": "#0a1128",
+    "allowMixedContent": false
+  }
+}
