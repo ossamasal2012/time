@@ -14,10 +14,6 @@
     return parseFloat(s.trim());
   });
 
-  // Background music playlist. Add more file paths here later and the
-  // player will automatically cycle through all of them in order, then loop.
-  var PLAYLIST = ["assets/audio/dwarven-mine.mp3"];
-
   var SETTINGS_KEY = "tth_settings_v1";
 
   /* ---------------- State ---------------- */
@@ -30,10 +26,6 @@
     timerRunning: false,
     startTs: 0,
     pendingCount: null,
-    wasPlayingBeforeGame: false,
-    musicVolume: 0.6,
-    muted: false,
-    currentTrackIndex: 0,
     gameMode: null,        // "open" | "fixed"
     totalRounds: 5,
     scoringRule: "default", // "default" | "customA" | "customB"
@@ -44,15 +36,11 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
-  var musicEl = $("bg-music");
-
   /* ---------------- Settings persistence ---------------- */
 
   function saveSettings() {
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-        volume: state.musicVolume,
-        muted: state.muted,
         scoringRule: state.scoringRule
       }));
     } catch (e) { /* ignore (private mode, etc.) */ }
@@ -63,8 +51,6 @@
       var raw = localStorage.getItem(SETTINGS_KEY);
       if (raw) {
         var s = JSON.parse(raw);
-        if (typeof s.volume === "number") state.musicVolume = s.volume;
-        if (typeof s.muted === "boolean") state.muted = s.muted;
         if (s.scoringRule === "default" || s.scoringRule === "customA" || s.scoringRule === "customB") {
           state.scoringRule = s.scoringRule;
         }
@@ -153,100 +139,6 @@
     if (btn) playClickSound();
   }, true);
 
-  /* ---------------- Music manager ---------------- */
-
-  function initMusic() {
-    musicEl.loop = PLAYLIST.length === 1;
-    musicEl.src = PLAYLIST[state.currentTrackIndex];
-    musicEl.volume = state.musicVolume;
-    musicEl.load(); // some WebView builds need an explicit load() after setting src via JS
-
-    if (PLAYLIST.length > 1) {
-      musicEl.addEventListener("ended", function () {
-        state.currentTrackIndex = (state.currentTrackIndex + 1) % PLAYLIST.length;
-        musicEl.src = PLAYLIST[state.currentTrackIndex];
-        musicEl.load();
-        musicEl.play().catch(function () {});
-      });
-    }
-
-    // The play/pause icon always reflects the audio element's REAL state,
-    // updated reactively via these events — never guessed synchronously
-    // right after calling play()/pause(), since play() is asynchronous
-    // and checking musicEl.paused immediately after calling it is stale.
-    musicEl.addEventListener("play", updateMusicToggleIcon);
-    musicEl.addEventListener("pause", updateMusicToggleIcon);
-    updateMusicToggleIcon();
-
-    var slider = $("volume-slider");
-    slider.value = state.musicVolume;
-    updateSliderFill(slider);
-  }
-
-  // Guaranteed fallback: some WebView builds never reliably reject the
-  // play() promise even when playback was blocked, so we can't depend on
-  // .catch() alone to know we need this. Instead we ALWAYS keep a
-  // first-interaction listener armed as a safety net, on top of the
-  // native fix (MainActivity disables the gesture requirement outright).
-  var gestureResumeArmed = false;
-  var GESTURE_EVENTS = ["pointerdown", "touchstart", "mousedown", "keydown"];
-
-  function armFirstGestureResume() {
-    if (gestureResumeArmed) return;
-    gestureResumeArmed = true;
-    var resume = function () {
-      GESTURE_EVENTS.forEach(function (evt) { document.removeEventListener(evt, resume, true); });
-      gestureResumeArmed = false;
-      if (!state.muted && musicEl.paused) {
-        musicEl.play().catch(function () {});
-      }
-    };
-    GESTURE_EVENTS.forEach(function (evt) {
-      document.addEventListener(evt, resume, { once: true, capture: true });
-    });
-  }
-
-  function tryPlayMusic() {
-    if (state.muted) return;
-    try {
-      var p = musicEl.play();
-      if (p && p.catch) { p.catch(function () {}); }
-    } catch (e) { /* ignore */ }
-    // Arm the safety net regardless of the outcome above.
-    armFirstGestureResume();
-  }
-
-  function pauseMusic() { musicEl.pause(); }
-
-  function updateMusicToggleIcon() {
-    var isPlaying = !musicEl.paused;
-    $("icon-play").style.display = isPlaying ? "none" : "";
-    $("icon-pause").style.display = isPlaying ? "" : "none";
-  }
-
-  $("music-toggle").addEventListener("click", function () {
-    if (musicEl.paused) {
-      state.muted = false;
-      tryPlayMusic();
-    } else {
-      state.muted = true;
-      pauseMusic();
-    }
-    saveSettings();
-  });
-
-  function updateSliderFill(slider) {
-    var pct = Math.round(parseFloat(slider.value) * 100) + "%";
-    slider.style.setProperty("--fill", pct);
-  }
-
-  $("volume-slider").addEventListener("input", function (e) {
-    state.musicVolume = parseFloat(e.target.value);
-    musicEl.volume = state.musicVolume;
-    updateSliderFill(e.target);
-    saveSettings();
-  });
-
   /* ---------------- Main menu ---------------- */
 
   $("btn-play").addEventListener("click", function () {
@@ -268,7 +160,6 @@
   });
 
   $("btn-howto").addEventListener("click", function () { openModal("howto-modal"); });
-  $("btn-sound").addEventListener("click", function () { openModal("sound-modal"); });
 
   /* ---------------- Custom rules screen ---------------- */
 
@@ -430,8 +321,6 @@
       return { name: val || ("اللاعب " + (idx + 1)), score: 0 };
     });
     state.round = 1;
-    state.wasPlayingBeforeGame = !musicEl.paused;
-    pauseMusic();
     startNewRound();
     showScreen("game-screen");
   });
@@ -649,7 +538,6 @@
 
   $("tournament-menu-btn").addEventListener("click", function () {
     showScreen("main-menu");
-    if (state.wasPlayingBeforeGame) tryPlayMusic();
   });
 
   /* ---------------- Rankings (mid-game) ---------------- */
@@ -677,7 +565,6 @@
   $("exit-game-btn").addEventListener("click", function () {
     showConfirm("هل تريد إنهاء اللعبة الحالية والعودة للقائمة الرئيسية؟", function () {
       showScreen("main-menu");
-      if (state.wasPlayingBeforeGame) tryPlayMusic();
     });
   });
 
@@ -685,7 +572,6 @@
 
   window.addEventListener("DOMContentLoaded", function () {
     loadSettings();
-    initMusic();
     applyRuleUIFromState();
 
     setTimeout(function () {
@@ -693,7 +579,6 @@
       setTimeout(function () {
         $("splash-screen").style.display = "none";
         showScreen("main-menu");
-        tryPlayMusic();
       }, 500);
     }, 2000);
   });
