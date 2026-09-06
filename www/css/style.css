@@ -231,20 +231,6 @@ svg { width: 24px; height: 24px; fill: currentColor; }
 
 .icon-btn svg { width: 20px; height: 20px; }
 
-.round-icon-btn {
-  width: 60px;
-  height: 60px;
-  min-width: 60px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, var(--green-500), var(--green-600));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 20px rgba(31, 184, 94, 0.35);
-}
-
-.round-icon-btn svg { width: 26px; height: 26px; color: #fff; }
-
 /* ---------------- Main menu ---------------- */
 
 #main-menu {
@@ -322,12 +308,6 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   background: linear-gradient(180deg, var(--navy-600), var(--navy-700));
   color: var(--ink-100);
   border: 1px solid rgba(245, 180, 0, 0.35);
-}
-
-.menu-btn--sound {
-  background: linear-gradient(180deg, var(--red-400), var(--red-600));
-  color: #fff;
-  box-shadow: 0 10px 26px rgba(230, 57, 70, 0.3);
 }
 
 .menu-btn--rules {
@@ -1043,55 +1023,6 @@ svg { width: 24px; height: 24px; fill: currentColor; }
 
 .modal-body p { margin: 0 0 12px; }
 .modal-body .hl { color: var(--gold-400); font-weight: 800; }
-
-/* Sound modal */
-.sound-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 22px;
-}
-
-.sound-track-info { display: flex; flex-direction: column; gap: 3px; }
-.sound-track-title { font-weight: 700; color: var(--ink-0); }
-.sound-track-sub { font-size: 0.78rem; color: var(--ink-500); }
-
-.volume-label { display: block; font-size: 0.85rem; color: var(--ink-300); margin-bottom: 8px; }
-
-.volume-slider {
-  /* Range-input fill direction vs. thumb direction is inconsistent across
-     browsers/webviews under dir="rtl". Forcing a plain LTR direction here
-     makes the gold fill and the thumb always move together, regardless of
-     the page's own RTL layout. */
-  direction: ltr;
-  width: 100%;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--gold-500) var(--fill, 60%), rgba(255,255,255,0.1) var(--fill, 60%));
-  outline: none;
-}
-
-.volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--gold-400);
-  border: 3px solid var(--navy-900);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  cursor: pointer;
-}
-
-.volume-slider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--gold-400);
-  border: 3px solid var(--navy-900);
-  cursor: pointer;
-}
 
 /* Rankings */
 .rankings-list {
