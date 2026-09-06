@@ -19,9 +19,6 @@ function makeGame() {
     resources: "usable",
     pretendToBeVisual: true,
     beforeParse(window) {
-      window.HTMLMediaElement.prototype.load = function () {};
-      window.HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
-      window.HTMLMediaElement.prototype.pause = function () {};
       window.AudioContext = function () {
         return {
           state: "running", currentTime: 0, resume() {},
