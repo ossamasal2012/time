@@ -2,7 +2,7 @@ name: Build & Publish Signed Release
 
 # Triggers only when version.properties changes (i.e. when you actually
 # bump the version to publish an update), plus a manual button so you can
-# re-run it any time from the Actions tab
+# re-run it any time from the Actions tab.
 on:
   push:
     branches: [ main, master ]
@@ -68,8 +68,7 @@ jobs:
         id: assets
         run: |
           cp android/app/build/outputs/apk/release/app-release*.apk app-release.apk
-          versionCode=$(grep '^versionCode=' version.properties | cut -d= -f2)
-          versionName=$(grep '^versionName=' version.properties | cut -d= -f2)
+          . <(grep -E '^(versionCode|versionName)=' version.properties)
           echo "versionCode=$versionCode" >> "$GITHUB_OUTPUT"
           echo "versionName=$versionName" >> "$GITHUB_OUTPUT"
 
