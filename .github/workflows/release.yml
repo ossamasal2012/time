@@ -2,7 +2,7 @@ name: Build & Publish Signed Release
 
 # Triggers only when version.properties changes (i.e. when you actually
 # bump the version to publish an update), plus a manual button so you can
-# re-run it any time from the Actions tab.
+# re-run it any time from the Actions tab
 on:
   push:
     branches: [ main, master ]
