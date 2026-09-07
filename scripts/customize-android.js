@@ -1,7 +1,7 @@
 /**
  * customize-android.js
  * -------------------------------------------------------------------------
- * Runs in CI (GitHub Actions) right after `npx cap add android`.
+ * Run in CI (GitHub Actions) right after `npx cap add android`.
  *
  * It injects the game's real branding and behavior into the freshly
  * generated native Android project:
