@@ -40,8 +40,48 @@ jobs:
       - name: Add native Android platform
         run: npx cap add android
 
+      # GitHub Secrets pasted through certain UIs (or a text editor along the
+      # way) can silently pick up a trailing space/newline or CRLF line
+      # endings — invisible to the eye, but Java's keystore decryption is
+      # byte-exact and will reject it. This step strips ALL whitespace from
+      # every signing secret before anything touches them, so the build is
+      # immune to that class of copy-paste corruption regardless of cause.
+      - name: Sanitize signing secrets
+        run: |
+          clean_b64=$(printf '%s' "$RAW_B64" | tr -d '[:space:]')
+          clean_pass=$(printf '%s' "$RAW_PASS" | tr -d '[:space:]')
+          clean_alias=$(printf '%s' "$RAW_ALIAS" | tr -d '[:space:]')
+          clean_keypass=$(printf '%s' "$RAW_KEYPASS" | tr -d '[:space:]')
+          echo "::add-mask::$clean_b64"
+          echo "::add-mask::$clean_pass"
+          echo "::add-mask::$clean_alias"
+          echo "::add-mask::$clean_keypass"
+          {
+            echo "CLEAN_KEYSTORE_BASE64=$clean_b64"
+            echo "CLEAN_KEYSTORE_PASSWORD=$clean_pass"
+            echo "CLEAN_KEY_ALIAS=$clean_alias"
+            echo "CLEAN_KEY_PASSWORD=$clean_keypass"
+          } >> "$GITHUB_ENV"
+        env:
+          RAW_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RAW_PASS: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RAW_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RAW_KEYPASS: ${{ secrets.RELEASE_KEY_PASSWORD }}
+
       - name: Decode release keystore
-        run: echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+        run: printf '%s' "$CLEAN_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+
+      # Fails fast with a clear message here (a few seconds in) instead of
+      # deep inside a Gradle signing task after a multi-minute build.
+      - name: Verify keystore + password actually match before building
+        run: |
+          if ! keytool -list -keystore android/app/release.keystore \
+                -storepass "$CLEAN_KEYSTORE_PASSWORD" \
+                -alias "$CLEAN_KEY_ALIAS" > /dev/null 2>&1; then
+            echo "::error::The RELEASE_KEYSTORE_BASE64 / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS secrets do not match this keystore. Re-check all three secrets in Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          echo "Keystore verified — alias '$CLEAN_KEY_ALIAS' opens correctly with the supplied password."
 
       - name: Sync web assets into the native project
         run: npx cap sync android
@@ -56,9 +96,9 @@ jobs:
         working-directory: android
         env:
           RELEASE_KEYSTORE_PATH: release.keystore
-          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ env.CLEAN_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ env.CLEAN_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ env.CLEAN_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace
 
       - name: Generate version.json
@@ -68,7 +108,8 @@ jobs:
         id: assets
         run: |
           cp android/app/build/outputs/apk/release/app-release*.apk app-release.apk
-          . <(grep -E '^(versionCode|versionName)=' version.properties)
+          versionCode=$(grep '^versionCode=' version.properties | cut -d= -f2)
+          versionName=$(grep '^versionName=' version.properties | cut -d= -f2)
           echo "versionCode=$versionCode" >> "$GITHUB_OUTPUT"
           echo "versionName=$versionName" >> "$GITHUB_OUTPUT"
 
