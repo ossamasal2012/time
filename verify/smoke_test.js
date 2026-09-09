@@ -13,8 +13,23 @@ const dom = new JSDOM(html, {
   resources: "usable",
   pretendToBeVisual: true,
   beforeParse(window) {
-    // AudioContext is used only by the synthesized click sound (no <audio>
-    // element or media playback exists in this app anymore).
+    // jsdom doesn't implement real media playback, so .paused never moves on
+    // its own — back it with a real flag that play()/pause() actually flip,
+    // the same observable contract a real WebView gives the app.
+    Object.defineProperty(window.HTMLMediaElement.prototype, "paused", {
+      get() { return this._pausedState !== false; },
+      configurable: true
+    });
+    window.HTMLMediaElement.prototype.load = function () {};
+    window.HTMLMediaElement.prototype.play = function () {
+      this._pausedState = false;
+      this.dispatchEvent(new window.Event("play"));
+      return Promise.resolve();
+    };
+    window.HTMLMediaElement.prototype.pause = function () {
+      this._pausedState = true;
+      this.dispatchEvent(new window.Event("pause"));
+    };
     window.AudioContext = function () {
       return {
         state: "running",
@@ -75,15 +90,24 @@ setTimeout(() => {
     if (!doc.getElementById("main-menu").classList.contains("active")) throw new Error("menu not active");
   });
 
-  step("sound/music UI is fully removed, but the click-sound synth still fires on button press", () => {
-    if (doc.getElementById("btn-sound")) throw new Error("btn-sound should no longer exist");
-    if (doc.getElementById("sound-modal")) throw new Error("sound-modal should no longer exist");
-    if (doc.getElementById("bg-music")) throw new Error("bg-music <audio> element should no longer exist");
-    if (doc.getElementById("volume-slider")) throw new Error("volume-slider should no longer exist");
-    // The click-sound synthesizer (Web Audio, no file) should be untouched:
-    // exercised indirectly on every fireClick() throughout this suite via
-    // the mocked AudioContext above — if it threw, it would show up in
-    // "errors" collected at the end.
+  step("music UI is present and the toggle icon reflects real play/pause state reactively", () => {
+    fireClick(doc.getElementById("btn-sound"));
+    if (!doc.getElementById("sound-modal").classList.contains("open")) throw new Error("sound-modal did not open");
+
+    const musicEl = doc.getElementById("bg-music");
+    const iconPlay = doc.getElementById("icon-play");
+    const iconPause = doc.getElementById("icon-pause");
+
+    musicEl.dispatchEvent(new window.Event("pause"));
+    if (iconPause.style.display !== "none") throw new Error("expected pause icon hidden while paused");
+
+    fireClick(doc.getElementById("music-toggle")); // should call play()
+    if (iconPlay.style.display !== "none") throw new Error("play icon should hide once playing");
+    if (iconPause.style.display === "none") throw new Error("pause icon should show once playing");
+
+    fireClick(doc.getElementById("music-toggle")); // should call pause()
+    if (iconPause.style.display !== "none") throw new Error("pause icon should hide once paused again");
+    fireClick(doc.querySelector('#sound-modal .modal-close'));
   });
 
   step("open and close how-to-play modal", () => {
