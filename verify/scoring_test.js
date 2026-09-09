@@ -19,6 +19,16 @@ function makeGame() {
     resources: "usable",
     pretendToBeVisual: true,
     beforeParse(window) {
+      Object.defineProperty(window.HTMLMediaElement.prototype, "paused", {
+        get() { return this._pausedState !== false; },
+        configurable: true
+      });
+      window.HTMLMediaElement.prototype.load = function () {};
+      window.HTMLMediaElement.prototype.play = function () {
+        this._pausedState = false;
+        return Promise.resolve();
+      };
+      window.HTMLMediaElement.prototype.pause = function () { this._pausedState = true; };
       window.AudioContext = function () {
         return {
           state: "running", currentTime: 0, resume() {},
