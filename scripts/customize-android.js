@@ -1,7 +1,7 @@
 /**
  * customize-android.js
  * -------------------------------------------------------------------------
- * Run in CI (GitHub Actions) right after `npx cap add android`.
+ * Runs in CI (GitHub Actions) right after `npx cap add android`.
  *
  * It injects the game's real branding and behavior into the freshly
  * generated native Android project:
@@ -14,7 +14,9 @@
  *   3. Copies the pre-rendered branded splash screens into every
  *      drawable / drawable-land-* / drawable-port-* density bucket.
  *   4. Patches MainActivity for immersive full-screen mode (hides the
- *      status bar and gesture/navigation bar, revealable with an edge swipe).
+ *      status bar and gesture/navigation bar, revealable with an edge swipe),
+ *      and disables the WebView's "media playback requires user gesture"
+ *      restriction so the background music can actually autoplay.
  *   5. Reads version.properties (the ONE file you edit to publish an
  *      update) and injects versionCode/versionName into build.gradle,
  *      enables BuildConfig generation (AGP 8+ disables it by default), and
@@ -248,22 +250,26 @@ if (fs.existsSync(CAPACITOR_CONFIG)) {
       const mainActivityJava = `package ${appId};
 
 import android.os.Bundle;
+import android.webkit.WebSettings;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 /**
- * Runs the game as a true full-screen Android app (immersive sticky mode),
- * and drives the in-app update system: a check on every fresh launch, and
- * a check for an already-downloaded update waiting to be installed every
- * time the app comes back to the foreground.
+ * Runs the game as a true full-screen Android app (immersive sticky mode);
+ * allows the background music to actually autoplay (Android's WebView
+ * blocks <audio>/<video> playback by default unless triggered by a real
+ * tap, otherwise); and drives the in-app update system: a check on every
+ * fresh launch, and a check for an already-downloaded update waiting to be
+ * installed every time the app comes back to the foreground.
  */
 public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        allowMediaAutoplay();
         enableImmersiveMode();
         UpdateManager.checkForUpdate(this);
     }
@@ -279,6 +285,13 @@ public class MainActivity extends BridgeActivity {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
             enableImmersiveMode();
+        }
+    }
+
+    private void allowMediaAutoplay() {
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            WebSettings settings = getBridge().getWebView().getSettings();
+            settings.setMediaPlaybackRequiresUserGesture(false);
         }
     }
 
