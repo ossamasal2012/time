@@ -78,7 +78,7 @@ jobs:
           if ! keytool -list -keystore android/app/release.keystore \
                 -storepass "$CLEAN_KEYSTORE_PASSWORD" \
                 -alias "$CLEAN_KEY_ALIAS" > /dev/null 2>&1; then
-            echo "::error::The RELEASE_KEYSTORE_BASE64 / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS secrets do not match this keystore. Re-check all three secrets in Settings -> Secrets and variables -> Actions."
+            echo "::error::The RELEASE_KEYSTORE_BASE64 / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD secrets do not match this keystore. Two likely causes: (1) a secret is saved under the wrong NAME — all four must be spelled exactly RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD (e.g. a secret named KEYSTORE_PASSWORD without the RELEASE_ prefix is invisible to this workflow and reads as empty); (2) a VALUE was pasted incorrectly. Re-check all four in Settings -> Secrets and variables -> Actions."
             exit 1
           fi
           echo "Keystore verified — alias '$CLEAN_KEY_ALIAS' opens correctly with the supplied password."
