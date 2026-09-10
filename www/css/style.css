@@ -254,6 +254,37 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   padding-top: max(36px, env(safe-area-inset-top));
 }
 
+.menu-dev-credit {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.menu-dev-credit span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(245, 180, 0, 0.18);
+  color: var(--ink-500);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.menu-dev-credit strong {
+  color: var(--gold-400);
+  font-weight: 800;
+}
+
 .menu-top { display: flex; flex-direction: column; align-items: center; margin-top: 10px; }
 
 .menu-logo {
@@ -648,7 +679,7 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   position: absolute;
   width: 24px;
   height: 24px;
-  left: 3px;
+  right: 3px;
   top: 3px;
   background: #fff;
   border-radius: 50%;
