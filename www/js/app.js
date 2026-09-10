@@ -531,8 +531,9 @@
    *     even on an exact hit. Ties share the point.
    *   - "customA": an exact hit wins 2 points; if nobody is exact, the
    *     closest (non-exact) player wins 1 point instead. Ties share.
-   *   - "customB": an exact hit wins 2 points; if nobody is exact, no one
-   *     scores that round at all. Ties share.
+   *   - "customB": an exact hit wins 2 points; if nobody is exact, the
+   *     closest (non-exact) player wins 1 point instead — same fallback
+   *     as customA. Ties share in both cases.
    *
    * With a single player there is no one to compare against, so "closest"
    * would trivially always be true — every rule set therefore falls back
@@ -555,8 +556,8 @@
       if (exactIndexes.length > 0) {
         return exactIndexes.map(function (i) { return { index: i, points: 2 }; });
       }
-      if (state.scoringRule === "customB") return []; // no fallback — nobody scores
-      // customA falls through to the normal closest-wins-1-point logic below
+      // Nobody hit exactly this round — both custom rules fall through to
+      // the normal closest-wins-1-point logic below (ties share the point).
     }
 
     var minDev = Math.min.apply(null, deviations);
