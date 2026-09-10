@@ -118,6 +118,7 @@ jobs:
         with:
           tag_name: v${{ steps.assets.outputs.versionName }}-${{ steps.assets.outputs.versionCode }}
           name: "تحدّي الثانية v${{ steps.assets.outputs.versionName }}"
+          make_latest: true
           files: |
             app-release.apk
             version.json
