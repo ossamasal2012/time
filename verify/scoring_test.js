@@ -217,17 +217,28 @@ function pointsOf(doc, name) {
     check("non-exact player wins 0 (CUSTOM-B)", pointsOf(doc, "آخر") === 0);
   });
 
-  await runScenario("Scenario 9 [customB]: NO exact hit -> nobody scores at all, even the closest", (window, doc) => {
+  await runScenario("Scenario 9 [customB]: NO exact hit -> falls back to closest wins 1 point (same as customA)", (window, doc) => {
     setRuleViaUI(window, doc, "customB");
     setupGame(window, doc, ["قريب جدًا", "بعيد"], 5);
     const target = parseFloat(doc.getElementById("target-number").textContent);
     playTurn(window, doc, Math.max(0.5, +(target - 0.01).toFixed(2))); // very close, not exact
     fireClick(window, doc.getElementById("next-turn-btn"));
     playTurn(window, doc, Math.min(14, +(target + 1).toFixed(2)));
-    check("closest-but-not-exact wins 0 under CUSTOM-B (no fallback)", pointsOf(doc, "قريب جدًا") === 0);
-    check("farther player also wins 0 under CUSTOM-B", pointsOf(doc, "بعيد") === 0);
-    const winnerBanner = doc.getElementById("round-result-winner-banner").textContent;
-    check("banner announces nobody scored", winnerBanner.indexOf("لم يُصب") !== -1);
+    check("closest (non-exact) wins 1 point via CUSTOM-B fallback", pointsOf(doc, "قريب جدًا") === 1);
+    check("farther player wins 0 points (CUSTOM-B)", pointsOf(doc, "بعيد") === 0);
+  });
+
+  await runScenario("Scenario 9b [customB]: tied closest distance with NO exact hit -> both win 1 point", (window, doc) => {
+    setRuleViaUI(window, doc, "customB");
+    setupGame(window, doc, ["أ", "ب"], 5);
+    const target = parseFloat(doc.getElementById("target-number").textContent);
+    const low = Math.max(0.5, +(target - 0.02).toFixed(2));
+    const high = Math.min(14, +(target + 0.02).toFixed(2));
+    playTurn(window, doc, low);
+    fireClick(window, doc.getElementById("next-turn-btn"));
+    playTurn(window, doc, high);
+    check("tied player A wins 1 point via CUSTOM-B fallback", pointsOf(doc, "أ") === 1);
+    check("tied player B wins 1 point via CUSTOM-B fallback", pointsOf(doc, "ب") === 1);
   });
 
   await runScenario("Scenario 10 [customA, solo]: exact -> 2 points, non-exact -> 0 (no trivial fallback)", (window, doc) => {
